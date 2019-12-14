@@ -24,15 +24,17 @@ use std::time::{Duration, Instant}; // timing
 fn main() {
     let start = Instant::now();
 
-    let code : usize = 224;
-    let width : usize = 30;
-    let height : usize = 30;
+    let code : usize = 52;
+    // let width : usize = 200;
+    // let height : usize = 130;
+    let width : usize = 800;
+    let height : usize = 400;
     let depth : usize = 1;
-    let moore : bool = true;
-    let outer_totalistic : bool = true;
+    let moore : bool = false;
+    let outer_totalistic : bool = false;
     let boundary_type : BoundaryType = BoundaryType::Null;
 
-    let mut initial_configuration : Vec<usize> = vec![0; (width * height) as usize];
+    let mut initial_configuration : Grid = Grid::new(width, height);
 
     // gosper glider gun
     // let mut initial_configuration : Vec<usize> = vec![
@@ -61,9 +63,9 @@ fn main() {
     for row_index in 0..height {
         for column_index in 0..width {
             if rand::random() {
-                initial_configuration[row_index * width + column_index] = 1;
+                initial_configuration.set_value(row_index, column_index, 1);
             } else {
-                initial_configuration[row_index * width + column_index] = 0;
+                initial_configuration.set_value(row_index, column_index, 0);
             }
         }
     }
@@ -84,7 +86,7 @@ fn main() {
 
     // gol.generate();
     // gol.generate_display();
-    gol.display_infinte();
+    gol.display_infinite();
 
     // println!("{}", gol);
 

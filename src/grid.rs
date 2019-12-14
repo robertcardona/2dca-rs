@@ -4,6 +4,8 @@ use petgraph::unionfind::UnionFind;
 
 use std::collections::HashMap;
 
+use std::fmt;
+use std::fmt::Write as FmtWrite;
 
 pub struct Grid { // todo : rename to grid2d
     width : usize,
@@ -25,8 +27,8 @@ impl Grid {
         };
     }
 
-    pub fn get_grid(self) -> Vec<usize> {
-        return self.grid;
+    pub fn get_grid(&self) -> &Vec<usize> {
+        return &self.grid;
     }
 
     pub fn get_value(&self, row_index : usize, column_index : usize) -> usize {
@@ -130,7 +132,7 @@ impl Grid {
                 }
             }
 
-            println!("number of components : {}", consecutive_labels.len() - 1);
+            // println!("number of components : {}", consecutive_labels.len() - 1);
 
             for (index, cell) in universe_labelled.iter_mut().enumerate() {
                 *cell = consecutive_labels[cell];
@@ -140,9 +142,81 @@ impl Grid {
         return universe_labelled;
     }
 
+    pub fn get_connected_components_grid(&self) -> Grid{
+        let make_consecutive_labels : bool = true;
+
+        return Grid {
+            width : self.width,
+            height : self.height,
+            grid : self.get_connected_components(make_consecutive_labels)
+        };
+    }
+
     pub fn label_connected_components(&mut self) {
         let make_consecutive_labels : bool = true;
-        
+
         self.grid = self.get_connected_components(make_consecutive_labels);
+    }
+
+    pub fn get_number_of_components(&self) -> usize {
+        // assuming you've run relabelling.
+        let mut max : usize = 0;
+        for cell in &self.grid {
+            if *cell > max {
+                max = *cell;
+            }
+        }
+        return max
+    }
+
+    pub fn save_to_csv(&self) -> Result<(), Box<dyn std::error::Error>>{
+        // This assumes you've run generate.
+
+        // let mut csv_filename = String::new();
+        // writeln!(&mut csv_filename, "./rule{}|size{}|seed{}.csv", self.rule, self.width, 1)?;
+
+        let csv_filename = format!("./width{}|height{}.csv", self.width, self.height);
+
+        let grid_as_string : String = self.get_grid_str();
+
+        // println!("{}", universe_as_string);
+        std::fs::write(csv_filename, grid_as_string).unwrap();
+
+        return Ok(());
+    }
+
+    pub fn get_grid_str(&self) -> String {
+        let mut grid_as_string : String = String::new();
+
+        for (index, cell) in self.grid.iter().enumerate() {
+            if *cell != 0 {
+                grid_as_string.push_str(&cell.to_string());
+                // println!("cell : {}", 1);
+            } else {
+                grid_as_string.push('0');
+                // println!("cell : {}", 0);
+            }
+
+            if index % self.width as usize == (self.width - 1) as usize {
+                grid_as_string.push('\n');
+            } else {
+                grid_as_string.push(',');
+            }
+        }
+
+        return grid_as_string;
+    }
+
+    // todo : add rotate grid method
+}
+
+impl fmt::Display for Grid {
+    // This trait requires `fmt` with this exact signature.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // Write strictly the first element into the supplied output
+        // stream: `f`. Returns `fmt::Result` which indicates whether the
+        // operation succeeded or failed. Note that `write!` uses syntax which
+        // is very similar to `println!`.
+        return write!(f, "{}", self.get_grid_str());
     }
 }

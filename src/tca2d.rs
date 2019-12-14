@@ -1,5 +1,6 @@
 use crate::boundary::{Boundary, BoundaryType};
 use crate::compass_direction::CompassDirection;
+use crate::grid::Grid;
 
 extern crate minifb;
 use minifb::{Key, WindowOptions, Window, Scale};
@@ -20,7 +21,7 @@ pub struct TCA2D {
     outer_totalistic : bool, // no : is totalistic.
     compass : Vec<CompassDirection>, // "constant"
     boundary : Boundary, // type to use for calculations
-    universe : Vec<Vec<usize>>
+    universe : Vec<Grid>
 }
 
 impl TCA2D { // totalistic cellular automata : 2 dimensional
@@ -32,17 +33,17 @@ impl TCA2D { // totalistic cellular automata : 2 dimensional
         outer_totalistic : bool,
         moore : bool,
         boundary_type : BoundaryType,
-        initial_configuration : Vec<usize>) -> TCA2D {
+        initial_configuration : Grid) -> TCA2D {
 
         // initialize universe with initial configuration
-        let mut universe : Vec<Vec<usize>> = Vec::<Vec<usize>>::new();
+        let mut universe : Vec<Grid> = Vec::<Grid>::new();
 
         // allocate memory
 
         universe.push(initial_configuration); // pass by reference
 
         for i in 1..depth {
-            let page : Vec<usize> = vec![0; (width * height) as usize];
+            let page : Grid = Grid::new(width, height);
 
             universe.push(page);
         }
@@ -80,7 +81,7 @@ impl TCA2D { // totalistic cellular automata : 2 dimensional
     }
 
     pub fn get_value(&self, page_index : usize, row_index : usize, column_index : usize) -> usize {
-        return self.universe[page_index][row_index * self.width + column_index];
+        return self.universe[page_index].get_value(row_index, column_index);
     }
 
     // pub fn get_offset(&self,
@@ -120,7 +121,7 @@ impl TCA2D { // totalistic cellular automata : 2 dimensional
 
 
     pub fn set_value(&mut self, page_index : usize, row_index : usize, column_index : usize, value : usize) {
-        self.universe[page_index][row_index * self.width + column_index] = value;
+        self.universe[page_index].set_value(row_index, column_index, value);
     }
 
     // fn is_valid_offset(&self, page_index : usize, row_index : usize, column_index : usize,
@@ -190,12 +191,12 @@ impl TCA2D { // totalistic cellular automata : 2 dimensional
         return radius;
     }
 
-    pub fn get_next_page(&self, page_index : usize) -> Vec::<usize> {
+    pub fn get_next_page(&self, page_index : usize) -> Grid {
 
         // assumes page_index > 0
         // does not increase the page or set the value; you must do that yourself.
 
-        let mut next_page : Vec<usize> = vec![0; self.width * self.height];
+        let mut next_page : Grid = Grid::new(self.width, self.height);
 
         // here is where I need to know totalistic vs outer_totalistic!
         for row_index in 0..self.height {
@@ -218,7 +219,7 @@ impl TCA2D { // totalistic cellular automata : 2 dimensional
                 }
 
                 // set value
-                next_page[row_index * self.width + column_index] = cell;
+                next_page.set_value(row_index, column_index, cell);
             }
         }
 
@@ -226,14 +227,14 @@ impl TCA2D { // totalistic cellular automata : 2 dimensional
     }
 
     pub fn increase_generation(&mut self, page_index : usize) {
-        let next_generation : Vec<usize> = self.get_next_page(page_index);
+        let next_generation : Grid = self.get_next_page(page_index);
 
         for row_index in 0..self.height {
             for column_index in 0..self.width {
                 self.set_value(page_index,
                     row_index,
                     column_index,
-                    next_generation[row_index * self.width + column_index]);
+                    next_generation.get_value(row_index, column_index));
             }
         }
     }
@@ -329,7 +330,7 @@ impl TCA2D { // totalistic cellular automata : 2 dimensional
         }
     }
 
-    pub fn display_infinte(&mut self) {
+    pub fn display_infinite(&mut self) {
         // assumes depth == 1
 
         let mut buffer: Vec<u32> = vec![0; self.width * self.height];
@@ -339,11 +340,12 @@ impl TCA2D { // totalistic cellular automata : 2 dimensional
             &self.width.to_string(),
             &self.height.to_string(),
             0);
+
         let mut window = Window::new("Test - ESC to exit",
                                      self.width,
                                      self.height,
                                      WindowOptions {
-                                        scale: Scale::X32,
+                                        scale: Scale::X2,
                                         ..WindowOptions::default()
                                      }).unwrap_or_else(|e| {
             panic!("{}", e);
@@ -355,12 +357,19 @@ impl TCA2D { // totalistic cellular automata : 2 dimensional
 
         while window.is_open() && !window.is_key_down(Key::Escape) {
 
+            let connected_components : Grid  = self.universe[0].get_connected_components_grid();
+            // println!("{}", connected_components);
+
+            // println!("#components:{}, generation:{}", connected_components.get_number_of_components(), generation);
+
             // update buffer
             for row_index in 0..self.height {
                 for column_index in 0..self.width {
+                    let cell : u32 = connected_components.get_value(row_index, column_index) as u32;
+
                     buffer[row_index * self.width + column_index] =
-                        if self.get_value(0, row_index, column_index) == 1 {
-                            0xffffff
+                        if cell != 0 {
+                            cell * 1000
                         } else {
                             0x00
                         };
@@ -368,20 +377,22 @@ impl TCA2D { // totalistic cellular automata : 2 dimensional
             }
 
             // update universe
-            let next_generation : Vec<usize> = self.get_next_page(1);
+            let mut next_generation : Grid = self.get_next_page(1);
             self.universe[0] = next_generation;
 
             // update generation
             generation = generation + 1;
-            title = format!("code:{}|width:{}|height:{}|generation:{}",
+            title = format!("code:{}|width:{}|height:{}|generation:{}|#components:{}",
                 &self.rule.to_string(),
                 &self.width.to_string(),
                 &self.height.to_string(),
-                generation.to_string());
+                generation.to_string(),
+                connected_components.get_number_of_components());
 
             window.set_title(&title);
             window.update_with_buffer_size(&buffer, self.width, self.height).unwrap();
 
+            // while(!window.is_key_down(Key::W)) {}
             let sleep_time = Duration::from_millis(10);
             thread::sleep(sleep_time);
         }
@@ -443,7 +454,7 @@ impl TCA2D { // totalistic cellular automata : 2 dimensional
     fn get_page(&self, page_index : usize) -> String {
         let mut page_str = String::new();
 
-        for (index, cell) in (self.universe[page_index as usize]).iter().enumerate() {
+        for (index, cell) in (self.universe[page_index].get_grid()).iter().enumerate() {
             page_str.push_str(&cell.to_string());
             if index % self.width as usize == (self.width - 1) as usize {
                 page_str.push('\n');

@@ -12,6 +12,8 @@ use std::thread;
 use std::time::{Duration}; // timing
 
 
+// todo : moore and outer_totalistic don't need to be part of the class;
+//      make part of the methods that use them.
 pub struct TCA2D {
     rule : usize,
     width : usize,
@@ -84,55 +86,11 @@ impl TCA2D { // totalistic cellular automata : 2 dimensional
         return self.universe[page_index].get_value(row_index, column_index);
     }
 
-    // pub fn get_offset(&self,
-    //     page_index : usize, row_index : usize, column_index : usize,
-    //     row_index_offset : isize, column_index_offset : isize) {
-    //
-    //     }
-
-    // fn get_von_neumann_offsets(&self) -> Vec::<Offsets>{
-    //     // This is really a constant.
-    //     let mut offsets = Vec::<Offsets>::new();
-    //
-    //     offsets.push(Offsets::North);
-    //     offsets.push(Offsets::East);
-    //     offsets.push(Offsets::South);
-    //     offsets.push(Offsets::West);
-    //
-    //     return offsets;
-    // }
-
-    // fn get_moore_offsets(&self) -> Vec::<Offsets>{
-    //     // This is really a constant.
-    //     let mut offsets = Vec::<Offsets>::new();
-    //
-    //     offsets.push(Offsets::NorthWest);
-    //     offsets.push(Offsets::North);
-    //     offsets.push(Offsets::NorthEast);
-    //     offsets.push(Offsets::East);
-    //     offsets.push(Offsets::SouthEast);
-    //     offsets.push(Offsets::South);
-    //     offsets.push(Offsets::SouthWest);
-    //     offsets.push(Offsets::West);
-    //
-    //     return offsets;
-    // }
-
-
-
     pub fn set_value(&mut self, page_index : usize, row_index : usize, column_index : usize, value : usize) {
         self.universe[page_index].set_value(row_index, column_index, value);
     }
 
-    // fn is_valid_offset(&self, page_index : usize, row_index : usize, column_index : usize,
-    //     row_offset : isize, column_offset : isize) -> bool {
     //
-    //
-    //
-    //     return true;
-    // }
-
-    ///
     fn get_radius_at_index(&self, page_index : usize, row_index : usize, column_index : usize) -> Vec<usize> {
         // this returns the *actual* values at the valid grid coordinates.
         // this will be called for every pixel at every page, so it needs to be efficient.
@@ -382,8 +340,10 @@ impl TCA2D { // totalistic cellular automata : 2 dimensional
 
             // update generation
             generation = generation + 1;
-            title = format!("code:{}|width:{}|height:{}|generation:{}|#components:{}",
+            title = format!("code:{}|moore:{}|totalistic:{}|width:{}|height:{}|generation:{}|#components:{}",
                 &self.rule.to_string(),
+                &self.moore,
+                &self.outer_totalistic,
                 &self.width.to_string(),
                 &self.height.to_string(),
                 generation.to_string(),
@@ -393,8 +353,8 @@ impl TCA2D { // totalistic cellular automata : 2 dimensional
             window.update_with_buffer_size(&buffer, self.width, self.height).unwrap();
 
             // while(!window.is_key_down(Key::W)) {}
-            let sleep_time = Duration::from_millis(10);
-            thread::sleep(sleep_time);
+            let sleep_time = Duration::from_millis(100);
+            // thread::sleep(sleep_time);   c
         }
 
 

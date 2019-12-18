@@ -1,5 +1,7 @@
 extern crate petgraph;
 
+use crate::compass_direction::{CompassDirection, Compass};
+
 use petgraph::unionfind::UnionFind;
 
 use std::collections::HashMap;
@@ -7,10 +9,21 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Write as FmtWrite;
 
+pub enum Connectivity {
+    FourConnected,
+    SixConnected, // for hexagonal grid
+    EightConnected
+}
+
+// todo : move the boundary object in here?
+
 pub struct Grid { // todo : rename to grid2d
     width : usize,
     height : usize,
-    grid : Vec<usize>
+    grid : Vec<usize>,
+    connectivity : Connectivity,
+    // compass : Compass // todo : pass a compass into the grid
+    // todo : boundary type?
 }
 
 impl Grid {
@@ -18,12 +31,16 @@ impl Grid {
     pub fn new(width : usize, height : usize) -> Grid {
         // returns new empty grid
 
+        // todo : add to new constructor
+        let connectivity : Connectivity = Connectivity::FourConnected;
+
         let grid : Vec<usize> = vec![0; (width * height) as usize];
 
         return Grid {
                 width : width,
                 height : height,
-                grid : grid
+                grid : grid,
+                connectivity : connectivity
         };
     }
 
@@ -40,9 +57,15 @@ impl Grid {
     }
 
     pub fn get_connected_components(&self, make_consecutive_labels : bool) -> Vec<usize> {
+        // todo : rewrite this to calculate connected components based on the boundary
 
         // assumes universe is flattened based on width, height
         let mut uf = UnionFind::<usize>::new((self.width * self.height) as usize);
+
+        let eight_connected : bool = match self.connectivity {
+            Connectivity::EightConnected => true,
+            _ => false
+        };
 
         for row_index in 0..self.height {
             for cell_index in 0..self.width {
@@ -53,11 +76,16 @@ impl Grid {
                 if cell == 1 {
                     // foreground
                     // println!{"foreground"};
+
+                    // todo : move all the rest to a different method; get_labels
+
                     let mut labels : Vec<usize> = Vec::new();
                     // get neighboring labels
                     // todo : should be able to rewrite all of this to reuse offset = (x, y) code
+
+                    // north
                     if row_index != 0 { // row above
-                        // north
+
                         let north_cell : usize = self.get_value(row_index - 1, cell_index);
                         // println!("north_cell:{}", north_cell);
                         if north_cell == 1 { // foreground
@@ -66,29 +94,58 @@ impl Grid {
                             labels.push(label);
                         }
                     }
+
+                    // west
                     if cell_index != 0 { // left column
-                        // west
+
                         let west_cell : usize = self.get_value(row_index, cell_index - 1);
                         if west_cell == 1 { // foreground
                             let label : usize = uf.find(row_index * self.width + (cell_index - 1));
                             labels.push(label);
                         }
                     }
-                    if cell_index != self.width - 1 { // right column
-                        let north_cell : usize = self.get_value(row_index, cell_index + 1);
-                        if north_cell == 1 { // foreground
-                            let label : usize = uf.find(row_index * self.width + (cell_index + 1));
-                            labels.push(label);
+
+                    if eight_connected {
+
+                        // north west
+                        if row_index != 0 && cell_index != 0 {
+                            let north_west_cell : usize = self.get_value(row_index - 1, cell_index - 1);
+
+                            if north_west_cell == 1 { // foreground
+                                let label : usize = uf.find((row_index - 1) * self.width + (cell_index - 1));
+                                labels.push(label);
+                            }
                         }
-                    }
-                    if row_index != self.height - 1 { // row below
-                        // south
-                        let south_cell : usize = self.get_value(row_index + 1, cell_index);
-                        if south_cell == 1 { // foreground
-                            let label : usize = uf.find((row_index + 1) * self.width + cell_index);
-                            labels.push(label);
+
+                        // north east
+                        if row_index != 0 && cell_index < self.width - 1 {
+                            let north_east_cell : usize = self.get_value(row_index - 1, cell_index + 1);
+
+                            if north_east_cell == 1 { // foreground
+                                let label : usize = uf.find((row_index - 1) * self.width + (cell_index + 1));
+                                labels.push(label);
+                            }
                         }
+
                     }
+
+                    // todo : check : not necessary?
+                    // if cell_index != self.width - 1 { // right column
+                    //     // east
+                    //     let north_cell : usize = self.get_value(row_index, cell_index + 1);
+                    //     if north_cell == 1 { // foreground
+                    //         let label : usize = uf.find(row_index * self.width + (cell_index + 1));
+                    //         labels.push(label);
+                    //     }
+                    // }
+                    // if row_index != self.height - 1 { // row below
+                    //     // south
+                    //     let south_cell : usize = self.get_value(row_index + 1, cell_index);
+                    //     if south_cell == 1 { // foreground
+                    //         let label : usize = uf.find((row_index + 1) * self.width + cell_index);
+                    //         labels.push(label);
+                    //     }
+                    // }
                     for label in &labels {
                         uf.union(row_index * self.width + cell_index, *label);
                         // println!{"\tlabel:{}", label};
@@ -148,7 +205,14 @@ impl Grid {
         return Grid {
             width : self.width,
             height : self.height,
-            grid : self.get_connected_components(make_consecutive_labels)
+            grid : self.get_connected_components(make_consecutive_labels),
+            connectivity : match self.connectivity {
+                Connectivity::FourConnected => Connectivity::FourConnected,
+                Connectivity::SixConnected => Connectivity::SixConnected,
+                Connectivity::EightConnected => Connectivity::EightConnected,
+                _ =>Connectivity::FourConnected
+            }
+            // compass : self.compass
         };
     }
 
@@ -167,6 +231,43 @@ impl Grid {
             }
         }
         return max
+    }
+
+    pub fn get_filter_l1(&mut self) {
+        let max_label = self.width + self.height;
+
+        for label in 1..(max_label + 1) {
+
+            // generate coordinates instead!
+
+            for row_index in 0..self.height {
+                for column_index in 0..self.width {
+
+                    // check if cell == label
+                    let cell : usize = self.get_value(row_index, column_index);
+                    if cell == label {
+                        // look nesw and give the label value plus 1.
+                        // for direction in self.compass.get_cardinals() {
+
+                        }
+
+                }
+            }
+        }
+            // update grid
+    }
+
+
+    pub fn filter_l2(&self) {
+
+    }
+
+    pub fn filter_linf(&self) {
+
+    }
+
+    pub fn save_to_dipha(&self) {
+
     }
 
     pub fn save_to_csv(&self) -> Result<(), Box<dyn std::error::Error>>{
@@ -220,3 +321,7 @@ impl fmt::Display for Grid {
         return write!(f, "{}", self.get_grid_str());
     }
 }
+
+// todo write function to return grid with single 1 in the middle.
+
+// todo write function to return grid of a specific game of life object, based on the lexicon.

@@ -98,11 +98,11 @@ fn main() {
     let start = Instant::now();
 
     let mut code : usize = 224;
-    // let width : usize = 200;
-    // let height : usize = 130;
+    let width : usize = 200;
+    let height : usize = 130;
     // let width : usize = 1600; // good with x2
-    let width : usize = 3600;
-    let height : usize = 5400;
+    // let width : usize = 3600;
+    // let height : usize = 5400;
     // let height : usize = 10;
     let depth : usize = 1;
     let mut moore : bool = true;
@@ -135,9 +135,9 @@ fn main() {
     // gol.generate_display();
     // gol.display_infinite();
 
-    display_all_1d(width, height);
+    // display_all_1d(width, height);
 
-    // display_all_2d(800, 400);
+    display_all_2d(800, 400);
 
     // println!("{}", gol);
 
